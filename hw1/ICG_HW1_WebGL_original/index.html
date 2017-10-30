@@ -9,14 +9,6 @@
 
 <script id="fragmentShader" type="fragment">
     precision mediump float;
-    varying vec4 fragcolor;
-    void main(void) {
-        gl_FragColor = fragcolor;
-    }
-</script>
-
-<script id="vertexShader" type="vertex">
-    precision mediump float;
 
     varying vec2 vTextureCoord;
     varying vec3 vTransformedNormal;
@@ -59,9 +51,37 @@
                 + uPointLightingDiffuseColor * diffuseLightWeighting;
         }
 
-        vec4 fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        vec4 fragmentColor;
+        if (uUseTextures) {
+            fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        } else {
+            fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
+        }
         gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
-    }</script>
+    }
+</script>
+
+<script id="vertexShader" type="vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+    attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+
+    varying vec2 vTextureCoord;
+    varying vec3 vTransformedNormal;
+    varying vec4 vPosition;
+
+
+    void main(void) {
+        vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = uPMatrix * vPosition;
+        vTextureCoord = aTextureCoord;
+        vTransformedNormal = uNMatrix * aVertexNormal;
+    }
+</script>
 
 
 <script type="text/javascript">
@@ -153,6 +173,7 @@
         shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor"); //ambient light rgb
 
 
+        shaderProgram.uUseTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures"); //ambient light rgb
         shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
         shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
         shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
@@ -295,6 +316,10 @@
 
         gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, teapotVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        // textures
+        var textures = document.getElementById("textures").checked;
+        gl.uniform1i(shaderProgram.uUseTexturesUniform, textures);
 
         // light assigning
         var specularHighlights = document.getElementById("specular").checked;
@@ -486,6 +511,7 @@
 
     <input type="checkbox" id="specular" checked /> Show specular highlight<br/>
     <input type="checkbox" id="lighting" checked /> Use lighting<br/>
+    <input type="checkbox" id="textures" checked /> Use textures<br/>  
     <br/>
 
     <h2>Material:</h2>
