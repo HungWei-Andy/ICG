@@ -22,33 +22,47 @@
 
     uniform vec3 uAmbientColor;
 
-    uniform vec3 uPointLightingLocation;
-    uniform vec3 uPointLightingSpecularColor;
-    uniform vec3 uPointLightingDiffuseColor;
+    uniform bool uUsePointLighting1;
+    uniform vec3 uPointLightingLocation1;
+    uniform vec3 uPointLightingSpecularColor1;
+    uniform vec3 uPointLightingDiffuseColor1;
+
+    uniform bool uUsePointLighting2;
+    uniform vec3 uPointLightingLocation2;
+    uniform vec3 uPointLightingSpecularColor2;
+    uniform vec3 uPointLightingDiffuseColor2;
 
     uniform sampler2D uSampler;
 
+
+    vec2 calc_lightWeightings(vec3 uPointLightingLocation){
+        vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
+        vec3 normal = normalize(vTransformedNormal);
+
+        float specularLightWeighting = 0.0;
+        if (uShowSpecularHighlights) {
+            vec3 eyeDirection = normalize(-vPosition.xyz);
+            vec3 reflectionDirection = reflect(-lightDirection, normal);
+
+            specularLightWeighting = pow(max(dot(reflectionDirection, eyeDirection), 0.0), uMaterialShininess);
+        }
+
+        float diffuseLightWeighting = max(dot(normal, lightDirection), 0.0);
+        return vec2(specularLightWeighting, diffuseLightWeighting);    
+    }
 
     void main(void) {
         vec3 lightWeighting;
         if (!uUseLighting) {
             lightWeighting = vec3(1.0, 1.0, 1.0);
         } else {
-            vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
-            vec3 normal = normalize(vTransformedNormal);
-
-            float specularLightWeighting = 0.0;
-            if (uShowSpecularHighlights) {
-                vec3 eyeDirection = normalize(-vPosition.xyz);
-                vec3 reflectionDirection = reflect(-lightDirection, normal);
-
-                specularLightWeighting = pow(max(dot(reflectionDirection, eyeDirection), 0.0), uMaterialShininess);
-            }
-
-            float diffuseLightWeighting = max(dot(normal, lightDirection), 0.0);
+            vec2 lightWeightings1 = calc_lightWeightings(uPointLightingLocation1);
+            vec2 lightWeightings2 = calc_lightWeightings(uPointLightingLocation2);
             lightWeighting = uAmbientColor
-                + uPointLightingSpecularColor * specularLightWeighting
-                + uPointLightingDiffuseColor * diffuseLightWeighting;
+                + uPointLightingSpecularColor1 * lightWeightings1[0]
+                + uPointLightingDiffuseColor1 * lightWeightings1[1]
+                + uPointLightingSpecularColor2 * lightWeightings2[0]
+                + uPointLightingDiffuseColor2 * lightWeightings2[1];
         }
 
         vec4 fragmentColor;
@@ -170,15 +184,21 @@
         // light
         shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
         shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting"); //whether to specify light
+        shaderProgram.usePointLighting1Uniform = gl.getUniformLocation(shaderProgram, "uUsePointLighting1"); //whether to specify light
+        shaderProgram.usePointLighting2Uniform = gl.getUniformLocation(shaderProgram, "uUsePointLighting2"); //whether to specify light
         shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor"); //ambient light rgb
 
 
         shaderProgram.uUseTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures"); //ambient light rgb
         shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
         shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
-        shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
-        shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
-        shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
+
+        shaderProgram.pointLightingLocation1Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation1");
+        shaderProgram.pointLightingSpecularColor1Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor1");
+        shaderProgram.pointLightingDiffuseColor1Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor1");
+        shaderProgram.pointLightingLocation2Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation2");
+        shaderProgram.pointLightingSpecularColor2Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor2");
+        shaderProgram.pointLightingDiffuseColor2Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor2");
 
         // texture
         shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
@@ -328,35 +348,65 @@
         var lighting = document.getElementById("lighting").checked;
         gl.uniform1i(shaderProgram.useLightingUniform, lighting);
 
-        if (lighting) {
+        var lighting1 = document.getElementById("pointLighting1").checked;
+        gl.uniform1i(shaderProgram.usePointLighting1Uniform, lighting1);
 
+        var lighting2 = document.getElementById("pointLighting2").checked;
+        gl.uniform1i(shaderProgram.usePointLighting2Uniform, lighting2);
+
+        if (lighting) {
             gl.uniform3f(
-                shaderProgram.ambientColorUniform,
+            shaderProgram.ambientColorUniform,
                 parseFloat(document.getElementById("ambientR").value),
                 parseFloat(document.getElementById("ambientG").value),
                 parseFloat(document.getElementById("ambientB").value)
             );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingLocationUniform,
-                parseFloat(document.getElementById("lightPositionX").value),
-                parseFloat(document.getElementById("lightPositionY").value),
-                parseFloat(document.getElementById("lightPositionZ").value)
-            );
+            if (lighting1){
+                gl.uniform3f(
+                    shaderProgram.pointLightingLocation1Uniform,
+                    parseFloat(document.getElementById("lightPositionX1").value),
+                    parseFloat(document.getElementById("lightPositionY1").value),
+                    parseFloat(document.getElementById("lightPositionZ1").value)
+                );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingSpecularColorUniform,
-                parseFloat(document.getElementById("specularR").value),
-                parseFloat(document.getElementById("specularG").value),
-                parseFloat(document.getElementById("specularB").value)
-            );
+                gl.uniform3f(
+                    shaderProgram.pointLightingSpecularColor1Uniform,
+                    parseFloat(document.getElementById("specularR1").value),
+                    parseFloat(document.getElementById("specularG1").value),
+                    parseFloat(document.getElementById("specularB1").value)
+                );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingDiffuseColorUniform,
-                parseFloat(document.getElementById("diffuseR").value),
-                parseFloat(document.getElementById("diffuseG").value),
-                parseFloat(document.getElementById("diffuseB").value)
-            );
+                gl.uniform3f(
+                    shaderProgram.pointLightingDiffuseColor1Uniform,
+                    parseFloat(document.getElementById("diffuseR1").value),
+                    parseFloat(document.getElementById("diffuseG1").value),
+                    parseFloat(document.getElementById("diffuseB1").value)
+                );
+            }
+
+            if (lighting2){
+                gl.uniform3f(
+                    shaderProgram.pointLightingLocation2Uniform,
+                    parseFloat(document.getElementById("lightPositionX2").value),
+                    parseFloat(document.getElementById("lightPositionY2").value),
+                    parseFloat(document.getElementById("lightPositionZ2").value)
+                );
+
+                gl.uniform3f(
+                    shaderProgram.pointLightingSpecularColor2Uniform,
+                    parseFloat(document.getElementById("specularR2").value),
+                    parseFloat(document.getElementById("specularG2").value),
+                    parseFloat(document.getElementById("specularB2").value)
+                );
+
+                gl.uniform3f(
+                    shaderProgram.pointLightingDiffuseColor2Uniform,
+                    parseFloat(document.getElementById("diffuseR2").value),
+                    parseFloat(document.getElementById("diffuseG2").value),
+                    parseFloat(document.getElementById("diffuseB2").value)
+                );
+            }
         }
 
         gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));    
@@ -522,28 +572,51 @@
         </tr>
     </table>
 
-    <h2>Point light:</h2>
+    <h2>Point light 1:</h2>
+    <input type="checkbox" id="pointLighting1" checked /> Use point light 1<br/>  
     <table style="border: 0; padding: 10px;">
         <tr>
             <td><b>Location:</b>
-            <td>X: <input type="text" id="lightPositionX" value="-10.0" />
-            <td>Y: <input type="text" id="lightPositionY" value="4.0" />
-            <td>Z: <input type="text" id="lightPositionZ" value="-20.0" />
+            <td>X: <input type="text" id="lightPositionX1" value="-10.0" />
+            <td>Y: <input type="text" id="lightPositionY1" value="10.0" />
+            <td>Z: <input type="text" id="lightPositionZ1" value="-20.0" />
         </tr>
         <tr>
             <td><b>Specular colour:</b>
-            <td>R: <input type="text" id="specularR" value="0.8" />
-            <td>G: <input type="text" id="specularG" value="0.8" />
-            <td>B: <input type="text" id="specularB" value="0.8" />
+            <td>R: <input type="text" id="specularR1" value="0.8" />
+            <td>G: <input type="text" id="specularG1" value="0.8" />
+            <td>B: <input type="text" id="specularB1" value="0.8" />
         </tr>
         <tr>
             <td><b>Diffuse colour:</b>
-            <td>R: <input type="text" id="diffuseR" value="0.8" />
-            <td>G: <input type="text" id="diffuseG" value="0.8" />
-            <td>B: <input type="text" id="diffuseB" value="0.8" />
+            <td>R: <input type="text" id="diffuseR1" value="0.8" />
+            <td>G: <input type="text" id="diffuseG1" value="0.8" />
+            <td>B: <input type="text" id="diffuseB1" value="0.8" />
         </tr>
     </table>
 
+    <h2>Point light 2:</h2>
+    <input type="checkbox" id="pointLighting2" checked /> Use point light 2<br/>
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Location:</b>
+            <td>X: <input type="text" id="lightPositionX2" value="20.0" />
+            <td>Y: <input type="text" id="lightPositionY2" value="-5.0" />
+            <td>Z: <input type="text" id="lightPositionZ2" value="-10.0" />
+        </tr>
+        <tr>
+            <td><b>Specular colour:</b>
+            <td>R: <input type="text" id="specularR2" value="0.8" />
+            <td>G: <input type="text" id="specularG2" value="0.8" />
+            <td>B: <input type="text" id="specularB2" value="0.8" />
+        </tr>
+        <tr>
+            <td><b>Diffuse colour:</b>
+            <td>R: <input type="text" id="diffuseR2" value="0.8" />
+            <td>G: <input type="text" id="diffuseG2" value="0.8" />
+            <td>B: <input type="text" id="diffuseB2" value="0.8" />
+        </tr>
+    </table>
 
     <h2>Ambient light:</h2>
     <table style="border: 0; padding: 10px;">
