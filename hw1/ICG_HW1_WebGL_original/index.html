@@ -282,7 +282,6 @@
         teapotVertexIndexBuffer.numItems = teapotData.indices.length;
     }
 
-
     function loadTeapot() {
         var request = new XMLHttpRequest();
         request.open("GET", "Teapot.json");
@@ -294,38 +293,101 @@
         request.send();
     }
 
+    function handleLoadedModel(modelData){
+        var vertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexNormals), gl.STATIC_DRAW);
+        vertexNormalBuffer.itemSize = 3;
+        vertexNormalBuffer.numItems = modelData.vertexNormals.length / 3;
 
-    var xrot = 0;
-    var xrot_speed = 0;
-    var yrot = 180;
-    var yrot_speed = 0.03;
-    var zrot = 0;
-    var zrot_speed = 0;
-    var rot_mask = 1;
-    var x = 0;
-    var y = 0;
-    var z = -40;
+        vertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexFrontcolors), gl.STATIC_DRAW);
+        model.itemSize = 3;
+        vertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
+
+        vertexBackColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBackColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexBackcolors), gl.STATIC_DRAW);
+        vertexBackColorBuffer.itemSize = 3;
+        vertexBackColorBuffer.numItems = modelData.vertexBackcolors.length / 3;
+
+        vertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexPositions), gl.STATIC_DRAW);
+        vertexPositionBuffer.itemSize = 3;
+        vertexPositionBuffer.numItems = modelData.vertexPositions.length / 3;
+
+        return [vertexNormalBuffer, vertexFrontColorBuffer, vertexBackColorBuffer, vertexPositionBuffer];
+    }
+
+    var churchVertexNormalBuffer;
+    var churchFrontColorBuffer;
+    var churchBackColorBuffer;
+    var churchVertexPositionBuffer;
+
+    function loadChurch() {
+        var request = new XMLHttpRequest();
+        request.open("GET", "Church.json");
+        request.onreadystatechange = function () {
+            if (request.readyState == 4) {
+                var buffers = handleLoadedModel(JSON.parse(request.responseText));
+                churchVertexNormalBuffer = buffers[0];
+                churchFrontColorBuffer = buffers[1];
+                churchBackColorBuffer = buffers[2];
+                churchVertexPositionBuffer = buffers[3];
+            }
+        }
+        request.send();
+    }
+
+    var csieVertexNormalBuffer;
+    var csieFrontColorBuffer;
+    var csieBackColorBuffer;
+    var csieVertexPositionBuffer;
+
+    function loadChurch() {
+        var request = new XMLHttpRequest();
+        request.open("GET", "Csie.json");
+        request.onreadystatechange = function () {
+            if (request.readyState == 4) {
+                var buffers = handleLoadedModel(JSON.parse(request.responseText));
+                csieVertexNormalBuffer = buffers[0];
+                csieFrontColorBuffer = buffers[1];
+                csieBackColorBuffer = buffers[2];
+                csieVertexPositionBuffer = buffers[3];
+            }
+        }
+        request.send();
+    }
 
 
-    function drawScene() {
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    var rot = [[0, 180, 0],
+               [0, 180, 0],
+               [0, 180, 0]];
+    var rotspeed = [[0, 0.03, 0],
+                    [0, 0.03, 0],
+                    [0, 0.03, 0]];
+    var rotmask = [1, 1, 1];
+    var pos = [[-40, 0, -100],
+               [-40, 0, -100],
+               [-40, 0, -100]];
+    var cur = 0;
 
+    function drawTeapot(){
         if (teapotVertexPositionBuffer == null || teapotVertexNormalBuffer == null || teapotVertexTextureCoordBuffer == null || teapotVertexIndexBuffer == null) {
             return;
         }
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix); //perspective
-
         mat4.identity(mvMatrix); //Model-View Matrix: mvMatrix, for translation and rotation
 
         //translation
-        mat4.translate(mvMatrix, [x, y, z]); // change object offset here
+        mat4.translate(mvMatrix, pos[0]); // change object offset here
 
         // rotation
-        mat4.rotate(mvMatrix, degToRad(xrot), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(yrot), [0, 1, 0]);
-        mat4.rotate(mvMatrix, degToRad(zrot), [0, 0, 1]);
+        mat4.rotate(mvMatrix, degToRad(rot[0][0]), [1, 0, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[0][1]), [0, 1, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[0][2]), [0, 0, 1]);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture); //bind is to set the current buffer
@@ -341,7 +403,82 @@
         var textures = document.getElementById("textures").checked;
         gl.uniform1i(shaderProgram.uUseTexturesUniform, textures);
 
-        // light assigning
+        // shiniess
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));    
+
+        // blending
+        var blending = document.getElementById("blending").checked;
+        if (blending) {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.enable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
+        } else {
+            gl.disable(gl.BLEND);
+            gl.enable(gl.DEPTH_TEST);
+        }
+
+        // texture assigning
+        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexTextureCoordBuffer);
+        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, teapotVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotVertexIndexBuffer);
+        setMatrixUniforms();
+        
+        // here to draw elements
+        gl.drawElements(gl.TRIANGLES, teapotVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
+
+    function drawCsie() {
+        if (csieVertexPositionBuffer == null || csieBackColorBuffer == null || csieFrontColorBuffer == null || csieVertexNormalBuffer == null) {
+            return;
+        }
+
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.identity(mvMatrix);
+        mat4.translate(mvMatrix, [0, 0, -10]);
+        mat4.rotate(mvMatrix, degToRad(teapotAngle), [0, 1, 0]);
+        
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, teapotVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, teapotVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        setMatrixUniforms();
+        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+    }
+
+    function drawChurch() {
+        if (churchBackColorBuffer == null || churchFrontColorBuffer == null || churchVertexNormalBuffer == null || churchVertexPositionBuffer == null) {
+            return;
+        }
+
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.identity(mvMatrix);
+        mat4.translate(mvMatrix, [0, 0, -10]);
+        mat4.rotate(mvMatrix, degToRad(teapotAngle), [0, 1, 0]);
+        
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, teapotVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, teapotVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        setMatrixUniforms();
+        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+    }
+
+
+    function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0, pMatrix); //perspective
+
+                // light assigning
         var specularHighlights = document.getElementById("specular").checked;
         gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
 
@@ -409,26 +546,9 @@
             }
         }
 
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));    
-
-        // blending
-        var blending = document.getElementById("blending").checked;
-        if (blending) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.enable(gl.BLEND);
-            gl.disable(gl.DEPTH_TEST);
-            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
-        } else {
-            gl.disable(gl.BLEND);
-            gl.enable(gl.DEPTH_TEST);
-        }
-
-        // texture assigning
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexTextureCoordBuffer);
-        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, teapotVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotVertexIndexBuffer);
-        setMatrixUniforms();
-        gl.drawElements(gl.TRIANGLES, teapotVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        drawTeapot();
+        //drawCsie();
+        //drawChurch();
     }
 
 
@@ -437,9 +557,10 @@
         var timeNow = new Date().getTime();
         if (lastTime != 0) {
             var elapsed = timeNow - lastTime;
-            xrot += rot_mask * xrot_speed * elapsed;
-            yrot += rot_mask * yrot_speed * elapsed;
-            zrot += rot_mask * zrot_speed * elapsed;
+            for(var ind = 0; ind < 3; ind++)
+            for(var i = 0; i < 3; i++){
+                rot[ind][i] += rotmask[ind] * rotspeed[ind][i] * elapsed;
+            }
         }
         lastTime = timeNow;
     }
@@ -456,54 +577,54 @@
     var pressedKeys = {};
 
     function reset_mv(){
-        xrot = 0;
-        xrot_speed = 0;
-        yrot = 180;
-        yrot_speed = 0.03;
-        zrot = 0;
-        zrot_speed = 0;
-        rot_mask = 1;
-        x = 0;
-        y = 0;
-        z = -40;
+        rot = [[0, 180, 0],
+               [0, 180, 0],
+               [0, 180, 0]];
+        rotspeed = [[0, 0.03, 0],
+                    [0, 0.03, 0],
+                    [0, 0.03, 0]];
+        rotmask = [1, 1, 1];
+        pos = [[-40, 0, -100],
+               [-40, 0, -100],
+               [-40, 0, -100]];
     }
 
     function handleKeys(){
         if(pressedKeys[33]){//pgup
-            zrot_speed -= 0.002;
+            rotspeed[cur][2] -= 0.002;
         }
         if(pressedKeys[34]){//pgdn
-            zrot_speed += 0.002;
+            rotspeed[cur][2] += 0.002;
         }
         if(pressedKeys[37]){//left
-            yrot_speed -= 0.002;
+            rotspeed[cur][1] -= 0.003;
         }
         if(pressedKeys[39]){//right
-            yrot_speed += 0.002;
+            rotspeed[cur][1] += 0.003;
         }
         if(pressedKeys[38]){//up
-            xrot_speed -= 0.002;
+            rotspeed[cur][0] -= 0.003;
         }
         if(pressedKeys[40]){//down
-            xrot_speed += 0.002;
+            rotspeed[cur][0] += 0.003;
         }
         if(pressedKeys[65]){//a
-            x -= 0.3;
+            pos[cur][0] -= 0.3;
         }
         if(pressedKeys[68]){//d
-            x += 0.3;
+            pos[cur][0] += 0.3;
         }
         if(pressedKeys[83]){//s
-            y -= 0.3;
+            pos[cur][1] -= 0.3;
         }
         if(pressedKeys[87]){//w
-            y += 0.3;
+            pos[cur][1] += 0.3;
         }
         if(pressedKeys[81]){//q
-            z -= 0.5;
+            pos[cur][2] -= 0.5;
         }
         if(pressedKeys[69]){//e
-            z += 0.5;
+            pos[cur][2] += 0.5;
         }
     }
 
@@ -511,10 +632,10 @@
         pressedKeys[event.keyCode] = true;
 
         if(String.fromCharCode(event.keyCode) == "X"){
-            rot_mask ^= 1;
+            rotmask[cur] ^= 1;
         }
         if(String.fromCharCode(event.keyCode) == "C"){
-            xrot_speed = yrot_speed = zrot_speed = 0;
+            rotspeed[cur][0] = rotspeed[cur][1] = rotspeed[cur][2] = 0;
         }
         if(String.fromCharCode(event.keyCode) == "R"){
             reset_mv();
@@ -548,10 +669,10 @@
 
 <body onload="webGLStart();">
   
-    <canvas id="ICG-canvas" style="border: none;" width="800" height="600"></canvas>
+    <canvas id="ICG-canvas" style="border: none;" width="1200" height="600"></canvas>
     <br/>
     
-    <input type="checkbox" id="blending" checked /> Use blending<br/>  
+    <input type="checkbox" id="blending" /> Use blending<br/>  
     <table style="border: 0; padding: 10px;">
         <tr>
             <td>Alpha: <input type="text" id="alpha" value="0.5" />
@@ -619,7 +740,7 @@
     </table>
 
     <h2>Ambient light:</h2>
-    <table style="border: 0; padding: 10px;">
+    <table style="border: 0; padding: 0px;">
         <tr>
             <td><b>Colour:</b>
             <td>R: <input type="text" id="ambientR" value="0.2" />
