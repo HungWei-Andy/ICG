@@ -478,7 +478,17 @@
 
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0, pMatrix); //perspective
 
-                // light assigning
+        // choose object
+        var choice = document.getElementById("choice").value;
+        if(choice == "teapot"){
+            cur = 0;
+        } else if(choice == "church"){
+            cur = 1;
+        } else if(choice == "csie"){
+            cur = 2;
+        }
+
+        // light assigning
         var specularHighlights = document.getElementById("specular").checked;
         gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
 
@@ -547,8 +557,8 @@
         }
 
         drawTeapot();
-        //drawCsie();
         //drawChurch();
+        //drawCsie();
     }
 
 
@@ -568,8 +578,8 @@
 
     function tick() {
         requestAnimFrame(tick);
-        handleKeys()
         drawScene();
+        handleKeys();
         animate();
     }
 
@@ -597,28 +607,28 @@
             rotspeed[cur][2] += 0.002;
         }
         if(pressedKeys[37]){//left
-            rotspeed[cur][1] -= 0.003;
+            rotspeed[cur][1] -= 0.002;
         }
         if(pressedKeys[39]){//right
-            rotspeed[cur][1] += 0.003;
+            rotspeed[cur][1] += 0.002;
         }
         if(pressedKeys[38]){//up
-            rotspeed[cur][0] -= 0.003;
+            rotspeed[cur][0] -= 0.002;
         }
         if(pressedKeys[40]){//down
-            rotspeed[cur][0] += 0.003;
+            rotspeed[cur][0] += 0.002;
         }
         if(pressedKeys[65]){//a
-            pos[cur][0] -= 0.3;
+            pos[cur][0] -= 0.5;
         }
         if(pressedKeys[68]){//d
-            pos[cur][0] += 0.3;
+            pos[cur][0] += 0.5;
         }
         if(pressedKeys[83]){//s
-            pos[cur][1] -= 0.3;
+            pos[cur][1] -= 0.5;
         }
         if(pressedKeys[87]){//w
-            pos[cur][1] += 0.3;
+            pos[cur][1] += 0.5;
         }
         if(pressedKeys[81]){//q
             pos[cur][2] -= 0.5;
@@ -672,6 +682,14 @@
     <canvas id="ICG-canvas" style="border: none;" width="1200" height="600"></canvas>
     <br/>
     
+    <select id="choice">
+        <option selected value="teapot">Teapot</option>
+        <option value="church">Church</option>
+        <option value="csie">Csie</option>
+    </select>
+    <br/>
+    <br/>
+
     <input type="checkbox" id="blending" /> Use blending<br/>  
     <table style="border: 0; padding: 10px;">
         <tr>
