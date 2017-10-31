@@ -89,6 +89,7 @@
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uShearMatrix;
+    uniform mat4 scaleMatrix;
     uniform mat3 uNMatrix;
     
     uniform bool uUseFrontColor;
@@ -99,8 +100,8 @@
     varying vec4 vtxp;
     
     void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * uShearMatrix * vec4(aVertexPosition, 1.0);
-        vtxp = uMVMatrix * uShearMatrix * vec4(aVertexPosition, 1.0);
+        vtxp = uMVMatrix * uShearMatrix * scaleMatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = uPMatrix * vtxp;
         normal = uNMatrix * aVertexNormal;
         normalized_normal = normalize(normal);
 
@@ -188,6 +189,9 @@
         shaderProgram.vertexFrontColorAttribute = gl.getAttribLocation(shaderProgram, "aFrontColor");
         gl.enableVertexAttribArray(shaderProgram.vertexFrontColorAttribute);
 
+        //scale
+        shaderProgram.scaleMatrixUniform = gl.getUniformLocation(shaderProgram, "scaleMatrix");
+
         //shearing
         shaderProgram.shearMatrixUniform = gl.getUniformLocation(shaderProgram, "uShearMatrix");
 
@@ -230,12 +234,13 @@
     var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
     var shearMatrix = mat4.create();
-
+    var scaleMatrix = mat4.create();
 
     function setMatrixUniforms() {
         gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
         gl.uniformMatrix4fv(shaderProgram.shearMatrixUniform, false, shearMatrix);
+        gl.uniformMatrix4fv(shaderProgram.scaleMatrixUniform, false, scaleMatrix);
 
         var normalMatrix = mat3.create();
         mat4.toInverseMat3(mvMatrix, normalMatrix);
@@ -398,6 +403,10 @@
         shearMatrix[4] += shear[index][0];
         shearMatrix[1] += shear[index][1];
 
+        // scales
+        mat4.identity(scaleMatrix);
+        scaleMatrix[0] = scaleMatrix[5] = scaleMatrix[10] = scale[index];
+
         // shading 
         gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
         gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading[index] == "gouraud");
@@ -454,6 +463,10 @@
         shearMatrix[4] += shear[index][0];
         shearMatrix[1] += shear[index][1];
 
+        // scales
+        mat4.identity(scaleMatrix);
+        scaleMatrix[0] = scaleMatrix[5] = scaleMatrix[10] = scale[index];
+
         // shading 
         gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
         gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading[index] == "gouraud");
@@ -509,6 +522,10 @@
         mat4.identity(shearMatrix);
         shearMatrix[4] += shear[index][0];
         shearMatrix[1] += shear[index][1];
+
+        // scales
+        mat4.identity(scaleMatrix);
+        scaleMatrix[0] = scaleMatrix[5] = scaleMatrix[10] = scale[index];
 
         // shading 
         gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
@@ -662,7 +679,8 @@
                [0, 0, -7],
                [3, 0, -4]];
     var init_shear = [[0, 0], [0, 0], [0, 0]];
-    var init_shading = ['flat', 'flat', 'flat'];
+    var init_shading = ['flat', 'gouraud', 'phong'];
+    var init_scale = [1.0, 1.0, 1.0];
     
     function deep_copy(attr){
         return JSON.parse(JSON.stringify(attr));
@@ -673,6 +691,7 @@
     var pos = deep_copy(init_pos);
     var shear = deep_copy(init_shear);
     var shading = deep_copy(init_shading);
+    var scale = deep_copy(init_scale);
     var cur = 0;
     
     function reset_mv(){
@@ -682,6 +701,7 @@
         pos[cur] = deep_copy(init_pos[cur]);
         shear[cur] = deep_copy(init_shear[cur]);
         shading[cur] = deep_copy(init_shading[cur]);
+        scale[cur] = deep_copy(init_scale[cur]);
     }
 
     function handleKeys(){
@@ -704,22 +724,22 @@
             rotspeed[cur][0] += 0.002;
         }
         if(pressedKeys[65]){//a
-            pos[cur][0] -= 0.5;
+            pos[cur][0] -= 0.2;
         }
         if(pressedKeys[68]){//d
-            pos[cur][0] += 0.5;
+            pos[cur][0] += 0.2;
         }
         if(pressedKeys[83]){//s
-            pos[cur][1] -= 0.5;
+            pos[cur][1] -= 0.2;
         }
         if(pressedKeys[87]){//w
-            pos[cur][1] += 0.5;
+            pos[cur][1] += 0.2;
         }
         if(pressedKeys[81]){//q
-            pos[cur][2] -= 0.5;
+            pos[cur][2] -= 0.2;
         }
         if(pressedKeys[69]){//e
-            pos[cur][2] += 0.5;
+            pos[cur][2] += 0.2;
         }
         if(pressedKeys[49]){//1
             shear[cur][0] -= 0.05;
@@ -742,15 +762,21 @@
         if(pressedKeys[55]){//7
             shading[cur] = "phong";
         }
+        if(pressedKeys[67]){//C
+            scale[cur] += 0.1;
+        }
+        if(pressedKeys[90]){//Z
+            scale[cur] = Math.max(0.1, scale[cur] - 0.1);
+        }
     }
 
     function handleKeyDown(event){
         pressedKeys[event.keyCode] = true;
 
-        if(String.fromCharCode(event.keyCode) == "X"){
+        if(event.keyCode == 32){
             rotmask[cur] ^= 1;
         }
-        if(String.fromCharCode(event.keyCode) == "C"){
+        if(String.fromCharCode(event.keyCode) == "X"){
             rotspeed[cur][0] = rotspeed[cur][1] = rotspeed[cur][2] = 0;
         }
         if(String.fromCharCode(event.keyCode) == "R"){
@@ -762,10 +788,19 @@
         pressedKeys[event.keyCode] = false;
     }
 
+    function initKeyboards(){
+        window.addEventListener('keydown', function(e) {
+            if(((e.keyCode >= 32 && e.keyCode <= 34) || (e.keyCode >= 37 && e.keyCode <= 40))&& e.target == document.body) {
+                e.preventDefault();
+            }
+        });
+    }
+
     function webGLStart() {
         var canvas = document.getElementById("ICG-canvas");
         initGL(canvas);
         initShaders();
+        initKeyboards();
         loadMig27();
         loadEaster();
         loadKangaroo();
@@ -887,9 +922,9 @@
     <br/>
 
     A, W, S, D: translation<br/>
-    Q, E: zoom in/zoom out<br/>
-    X: pause<br/>
-    C: stop<br/>
+    E/Q: zoom in/out<br/>
+    Z/C: scale down/up<br/>
+    Space: pause<br/>
     direction key: speed up rotation on x, y axis<br/>
     pgup, pgdn: speed up rotation on z axis<br/>
     R: reset<br/>
