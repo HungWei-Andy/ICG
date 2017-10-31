@@ -13,7 +13,7 @@
     
     precision mediump float;
     
-    
+
     uniform vec3 uAmbientColor;
 
     uniform bool uUsePointLighting1;
@@ -31,6 +31,8 @@
     uniform bool useFlatShading;
     uniform bool useGouraudShading;
     uniform bool usePhongShading;
+    uniform bool uUseLighting;
+    uniform bool uShowSpecularHighlights;
 
     varying vec4 fragcolor;
     varying vec3 normal;
@@ -38,38 +40,40 @@
     varying vec4 vtxp;
     
     void main(void) {
-        
-        vec3 N;
-        if(useFlatShading){
-            N = normalize(cross(dFdx(vtxp.xyz),dFdy(vtxp.xyz)));
-        } else if(useGouraudShading) {
-            N = normalized_normal;
-        } else if(usePhongShading){
-            N = normalize(normal);
-        }
-        
         vec3 lightWeighting;
-        vec3 eyeDirection = normalize( -(vtxp.xyz) );
+        if(uUseLighting){
+            vec3 N;
+            if(useFlatShading){
+                N = normalize(cross(dFdx(vtxp.xyz),dFdy(vtxp.xyz)));
+            } else if(useGouraudShading) {
+                N = normalized_normal;
+            } else if(usePhongShading){
+                N = normalize(normal);
+            }
         
-        // point light 1
-        vec3 lightDirection1 = normalize(uPointLightingLocation1 - vtxp.xyz);
-        vec3 reflectionDirection1 = reflect(-lightDirection1, N);
-        float specularLightWeighting1 = pow(max(dot(reflectionDirection1, eyeDirection), 0.0), uMaterialShininess);
-        float diffuseLightWeighting1 = max(dot(N, lightDirection1), 0.0);
-
-        // point light 2
-        vec3 lightDirection2 = normalize(uPointLightingLocation2 - vtxp.xyz);
-        vec3 reflectionDirection2 = reflect(-lightDirection2, N);
-        float specularLightWeighting2 = pow(max(dot(reflectionDirection2, eyeDirection), 0.0), uMaterialShininess);
-        float diffuseLightWeighting2 = max(dot(N, lightDirection2), 0.0);
-
-        // light weighting
-        lightWeighting = uAmbientColor
-            + (uPointLightingSpecularColor1 * specularLightWeighting1
-            + uPointLightingDiffuseColor1 * diffuseLightWeighting1) * (uUsePointLighting1 ? 1.0 : 0.0)
-            + (uPointLightingSpecularColor2 * specularLightWeighting2
-            + uPointLightingDiffuseColor2 * diffuseLightWeighting2) * (uUsePointLighting2 ? 1.0 : 0.0);       
+            vec3 eyeDirection = normalize( -(vtxp.xyz) );
         
+            // point light 1
+            vec3 lightDirection1 = normalize(uPointLightingLocation1 - vtxp.xyz);
+            vec3 reflectionDirection1 = reflect(-lightDirection1, N);
+            float specularLightWeighting1 = pow(max(dot(reflectionDirection1, eyeDirection), 0.0), uMaterialShininess);
+            float diffuseLightWeighting1 = max(dot(N, lightDirection1), 0.0);
+
+            // point light 2
+            vec3 lightDirection2 = normalize(uPointLightingLocation2 - vtxp.xyz);
+            vec3 reflectionDirection2 = reflect(-lightDirection2, N);
+            float specularLightWeighting2 = pow(max(dot(reflectionDirection2, eyeDirection), 0.0), uMaterialShininess);
+            float diffuseLightWeighting2 = max(dot(N, lightDirection2), 0.0);
+
+            // light weighting
+            lightWeighting = uAmbientColor
+                + (uPointLightingSpecularColor1 * specularLightWeighting1 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                + uPointLightingDiffuseColor1 * diffuseLightWeighting1) * (uUsePointLighting1 ? 1.0 : 0.0)
+                + (uPointLightingSpecularColor2 * specularLightWeighting2 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                + uPointLightingDiffuseColor2 * diffuseLightWeighting2) * (uUsePointLighting2 ? 1.0 : 0.0);       
+        } else {
+            lightWeighting = uAmbientColor;
+        }
         gl_FragColor = vec4(fragcolor.rgb * lightWeighting, fragcolor.a);
     
     }
@@ -79,7 +83,7 @@
 //flat
     attribute vec3 aVertexPosition;
     attribute vec3 aVertexNormal;
-    attribute vec2 aTextureCoord;
+    attribute vec3 aFrontColor;
     
     
     uniform mat4 uMVMatrix;
@@ -87,7 +91,7 @@
     uniform mat4 uShearMatrix;
     uniform mat3 uNMatrix;
     
-    uniform sampler2D uSampler;
+    uniform bool uUseFrontColor;
     
     varying vec4 fragcolor;
     varying vec3 normal;
@@ -99,7 +103,8 @@
         vtxp = uMVMatrix * uShearMatrix * vec4(aVertexPosition, 1.0);
         normal = uNMatrix * aVertexNormal;
         normalized_normal = normalize(normal);
-        fragcolor = texture2D(uSampler, vec2(aTextureCoord.s, aTextureCoord.t));
+
+        fragcolor = vec4(aFrontColor.rgb, 1.0);
     }
 </script>
 
@@ -180,8 +185,8 @@
         shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
         gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
 
-        shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+        shaderProgram.vertexFrontColorAttribute = gl.getAttribLocation(shaderProgram, "aFrontColor");
+        gl.enableVertexAttribArray(shaderProgram.vertexFrontColorAttribute);
 
         //shearing
         shaderProgram.shearMatrixUniform = gl.getUniformLocation(shaderProgram, "uShearMatrix");
@@ -203,7 +208,6 @@
         shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor"); //ambient light rgb
 
         
-        shaderProgram.uUseTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures"); //ambient light rgb
         shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
         shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
 
@@ -214,37 +218,14 @@
         shaderProgram.pointLightingSpecularColor2Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor2");
         shaderProgram.pointLightingDiffuseColor2Uniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor2");
 
-        // texture
-        shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+        // front color
+        shaderProgram.uUseFrontColorUniform = gl.getUniformLocation(shaderProgram, "uUseFrontColor");
 
+        
         // transparency
         shaderProgram.useBlendingUniform = gl.getUniformLocation(shaderProgram, "uUseBlending");
         shaderProgram.alphaUniform = gl.getUniformLocation(shaderProgram, "uAlpha");
     }
-
-
-    function handleLoadedTexture(texture) {
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-        gl.generateMipmap(gl.TEXTURE_2D);
-
-        gl.bindTexture(gl.TEXTURE_2D, null);
-    }
-
-    var galvanizedTexture;
-
-    function initTextures() {
-        galvanizedTexture = gl.createTexture();
-        galvanizedTexture.image = new Image();
-        galvanizedTexture.image.onload = function () {
-            handleLoadedTexture(galvanizedTexture)
-        }
-        galvanizedTexture.image.src = "galvanizedTexture.jpg";
-    }
-
 
     var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
@@ -266,119 +247,139 @@
         return degrees * Math.PI / 180;
     }
 
+    // Easter
+    var easterVertexPositionBuffer;
+    var easterVertexNormalBuffer;
+    var easterVertexFrontColorBuffer;
+    var easterVertexBackColorBuffer;
 
-    var teapotVertexPositionBuffer;
-    var teapotVertexNormalBuffer;
-    var teapotVertexTextureCoordBuffer;
-    var teapotVertexIndexBuffer;
+    function handleLoadedEaster(easterData) {
+        easterVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(easterData.vertexNormals), gl.STATIC_DRAW);
+        easterVertexNormalBuffer.itemSize = 3;
+        easterVertexNormalBuffer.numItems = easterData.vertexNormals.length / 3;
 
-    function handleLoadedTeapot(teapotData) {
-        teapotVertexNormalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexNormals), gl.STATIC_DRAW);
-        teapotVertexNormalBuffer.itemSize = 3;
-        teapotVertexNormalBuffer.numItems = teapotData.vertexNormals.length / 3;
+        easterVertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(easterData.vertexFrontcolors), gl.STATIC_DRAW);
+        easterVertexFrontColorBuffer.itemSize = 3;
+        easterVertexFrontColorBuffer.numItems = easterData.vertexFrontcolors.length / 3;
 
-        teapotVertexTextureCoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexTextureCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexTextureCoords), gl.STATIC_DRAW);
-        teapotVertexTextureCoordBuffer.itemSize = 2;
-        teapotVertexTextureCoordBuffer.numItems = teapotData.vertexTextureCoords.length / 2;
+        easterVertexBackColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexBackColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(easterData.vertexBackcolors), gl.STATIC_DRAW);
+        easterVertexBackColorBuffer.itemSize = 3;
+        easterVertexBackColorBuffer.numItems = easterData.vertexBackcolors.length / 3;
 
-        teapotVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(teapotData.vertexPositions), gl.STATIC_DRAW);
-        teapotVertexPositionBuffer.itemSize = 3;
-        teapotVertexPositionBuffer.numItems = teapotData.vertexPositions.length / 3;
-
-        teapotVertexIndexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotVertexIndexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(teapotData.indices), gl.STATIC_DRAW);
-        teapotVertexIndexBuffer.itemSize = 1;
-        teapotVertexIndexBuffer.numItems = teapotData.indices.length;
+        easterVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(easterData.vertexPositions), gl.STATIC_DRAW);
+        easterVertexPositionBuffer.itemSize = 3;
+        easterVertexPositionBuffer.numItems = easterData.vertexPositions.length / 3;
     }
 
-    function loadTeapot() {
+
+    function loadEaster() {
         var request = new XMLHttpRequest();
-        request.open("GET", "Teapot.json");
+        request.open("GET", "Easter.json");
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
-                handleLoadedTeapot(JSON.parse(request.responseText));
+                handleLoadedEaster(JSON.parse(request.responseText));
             }
         }
         request.send();
     }
 
-    function handleLoadedModel(modelData){
-        var vertexNormalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, modelVertexNormalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexNormals), gl.STATIC_DRAW);
-        vertexNormalBuffer.itemSize = 3;
-        vertexNormalBuffer.numItems = modelData.vertexNormals.length / 3;
+    // Kangaroo
+    var kangarooVertexPositionBuffer;
+    var kangarooVertexNormalBuffer;
+    var kangarooVertexFrontColorBuffer;
+    var kangarooVertexBackColorBuffer;
 
-        vertexFrontColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexFrontColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexFrontcolors), gl.STATIC_DRAW);
-        model.itemSize = 3;
-        vertexFrontColorBuffer.numItems = modelData.vertexFrontcolors.length / 3;
+    function handleLoadedKangaroo(kangarooData) {
+        kangarooVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(kangarooData.vertexNormals), gl.STATIC_DRAW);
+        kangarooVertexNormalBuffer.itemSize = 3;
+        kangarooVertexNormalBuffer.numItems = kangarooData.vertexNormals.length / 3;
 
-        vertexBackColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBackColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexBackcolors), gl.STATIC_DRAW);
-        vertexBackColorBuffer.itemSize = 3;
-        vertexBackColorBuffer.numItems = modelData.vertexBackcolors.length / 3;
+        kangarooVertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(kangarooData.vertexFrontcolors), gl.STATIC_DRAW);
+        kangarooVertexFrontColorBuffer.itemSize = 3;
+        kangarooVertexFrontColorBuffer.numItems = kangarooData.vertexFrontcolors.length / 3;
 
-        vertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexPositionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.vertexPositions), gl.STATIC_DRAW);
-        vertexPositionBuffer.itemSize = 3;
-        vertexPositionBuffer.numItems = modelData.vertexPositions.length / 3;
+        kangarooVertexBackColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexBackColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(kangarooData.vertexBackcolors), gl.STATIC_DRAW);
+        kangarooVertexBackColorBuffer.itemSize = 3;
+        kangarooVertexBackColorBuffer.numItems = kangarooData.vertexBackcolors.length / 3;
 
-        return [vertexNormalBuffer, vertexFrontColorBuffer, vertexBackColorBuffer, vertexPositionBuffer];
+        kangarooVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(kangarooData.vertexPositions), gl.STATIC_DRAW);
+        kangarooVertexPositionBuffer.itemSize = 3;
+        kangarooVertexPositionBuffer.numItems = kangarooData.vertexPositions.length / 3;
     }
 
-    var churchVertexNormalBuffer;
-    var churchFrontColorBuffer;
-    var churchBackColorBuffer;
-    var churchVertexPositionBuffer;
 
-    function loadChurch() {
+    function loadKangaroo() {
         var request = new XMLHttpRequest();
-        request.open("GET", "Church.json");
+        request.open("GET", "Kangaroo.json");
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
-                var buffers = handleLoadedModel(JSON.parse(request.responseText));
-                churchVertexNormalBuffer = buffers[0];
-                churchFrontColorBuffer = buffers[1];
-                churchBackColorBuffer = buffers[2];
-                churchVertexPositionBuffer = buffers[3];
+                handleLoadedKangaroo(JSON.parse(request.responseText));
             }
         }
         request.send();
     }
 
-    var csieVertexNormalBuffer;
-    var csieFrontColorBuffer;
-    var csieBackColorBuffer;
-    var csieVertexPositionBuffer;
+    // Mig27
+    var mig27VertexPositionBuffer;
+    var mig27VertexNormalBuffer;
+    var mig27VertexFrontColorBuffer;
+    var mig27VertexBackColorBuffer;
 
-    function loadChurch() {
+    function handleLoadedMig27(mig27Data) {
+        mig27VertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mig27Data.vertexNormals), gl.STATIC_DRAW);
+        mig27VertexNormalBuffer.itemSize = 3;
+        mig27VertexNormalBuffer.numItems = mig27Data.vertexNormals.length / 3;
+
+        mig27VertexFrontColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexFrontColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mig27Data.vertexFrontcolors), gl.STATIC_DRAW);
+        mig27VertexFrontColorBuffer.itemSize = 3;
+        mig27VertexFrontColorBuffer.numItems = mig27Data.vertexFrontcolors.length / 3;
+
+        mig27VertexBackColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexBackColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mig27Data.vertexBackcolors), gl.STATIC_DRAW);
+        mig27VertexBackColorBuffer.itemSize = 3;
+        mig27VertexBackColorBuffer.numItems = mig27Data.vertexBackcolors.length / 3;
+
+        mig27VertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mig27Data.vertexPositions), gl.STATIC_DRAW);
+        mig27VertexPositionBuffer.itemSize = 3;
+        mig27VertexPositionBuffer.numItems = mig27Data.vertexPositions.length / 3;
+    }
+
+    function loadMig27() {
         var request = new XMLHttpRequest();
-        request.open("GET", "Csie.json");
+        request.open("GET", "Mig27.json");
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
-                var buffers = handleLoadedModel(JSON.parse(request.responseText));
-                csieVertexNormalBuffer = buffers[0];
-                csieFrontColorBuffer = buffers[1];
-                csieBackColorBuffer = buffers[2];
-                csieVertexPositionBuffer = buffers[3];
+                handleLoadedMig27(JSON.parse(request.responseText));
             }
         }
         request.send();
     }
 
-    function drawTeapot(index){
-        if (teapotVertexPositionBuffer == null || teapotVertexNormalBuffer == null || teapotVertexTextureCoordBuffer == null || teapotVertexIndexBuffer == null) {
+    function drawMig27(index) {
+        if (mig27VertexPositionBuffer == null || mig27VertexBackColorBuffer == null || mig27VertexFrontColorBuffer == null || mig27VertexNormalBuffer == null) {
             return;
         }
 
@@ -397,22 +398,25 @@
         shearMatrix[4] += shear[index][0];
         shearMatrix[1] += shear[index][1];
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture); //bind is to set the current buffer
-        
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, teapotVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        // shading 
+        gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
+        gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading[index] == "gouraud");
+        gl.uniform1i(shaderProgram.usePhongShadingUniform, shading[index] == "phong");
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexNormalBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, teapotVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, mig27VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        // textures
-        var textures = document.getElementById("textures").checked;
-        gl.uniform1i(shaderProgram.uUseTexturesUniform, textures);
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexNormalBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, mig27VertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, mig27VertexFrontColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, mig27VertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         // shiniess
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));    
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+
+        // enable front color
+        gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
 
         // blending
         var blending = document.getElementById("blending").checked;
@@ -426,57 +430,120 @@
             gl.enable(gl.DEPTH_TEST);
         }
 
-        // texture assigning
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexTextureCoordBuffer);
-        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, teapotVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotVertexIndexBuffer);
         setMatrixUniforms();
-        
-        // here to draw elements
-        gl.drawElements(gl.TRIANGLES, teapotVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, mig27VertexPositionBuffer.numItems);
     }
 
-
-    function drawCsie() {
-        if (csieVertexPositionBuffer == null || csieBackColorBuffer == null || csieFrontColorBuffer == null || csieVertexNormalBuffer == null) {
+    function drawEaster(index) {
+        if (easterVertexPositionBuffer == null || easterVertexBackColorBuffer == null || easterVertexFrontColorBuffer == null || easterVertexNormalBuffer == null) {
             return;
         }
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-        mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0, 0, -10]);
-        mat4.rotate(mvMatrix, degToRad(teapotAngle), [0, 1, 0]);
-        
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, teapotVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        mat4.identity(mvMatrix); //Model-View Matrix: mvMatrix, for translation and rotation
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, teapotVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        //translation
+        mat4.translate(mvMatrix, pos[index]); // change object offset here
+
+        // rotation
+        mat4.rotate(mvMatrix, degToRad(rot[index][0]), [1, 0, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[index][1]), [0, 1, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[index][2]), [0, 0, 1]);
+
+        // shearing
+        mat4.identity(shearMatrix);
+        shearMatrix[4] += shear[index][0];
+        shearMatrix[1] += shear[index][1];
+
+        // shading 
+        gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
+        gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading[index] == "gouraud");
+        gl.uniform1i(shaderProgram.usePhongShadingUniform, shading[index] == "phong");
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, easterVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexNormalBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, easterVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, easterVertexFrontColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, easterVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        // shiniess
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+
+        // enable front color
+        gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
+
+        // blending
+        var blending = document.getElementById("blending").checked;
+        if (blending) {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.enable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
+        } else {
+            gl.disable(gl.BLEND);
+            gl.enable(gl.DEPTH_TEST);
+        }
 
         setMatrixUniforms();
-        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+        gl.drawArrays(gl.TRIANGLES, 0, easterVertexPositionBuffer.numItems);
     }
 
-    function drawChurch() {
-        if (churchBackColorBuffer == null || churchFrontColorBuffer == null || churchVertexNormalBuffer == null || churchVertexPositionBuffer == null) {
+    function drawKangaroo(index) {
+        if (kangarooVertexPositionBuffer == null || kangarooVertexBackColorBuffer == null || kangarooVertexFrontColorBuffer == null || kangarooVertexNormalBuffer == null) {
             return;
         }
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-        mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0, 0, -10]);
-        mat4.rotate(mvMatrix, degToRad(teapotAngle), [0, 1, 0]);
-        
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, teapotVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        mat4.identity(mvMatrix); //Model-View Matrix: mvMatrix, for translation and rotation
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotVertexFrontColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, teapotVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        //translation
+        mat4.translate(mvMatrix, pos[index]); // change object offset here
+
+        // rotation
+        mat4.rotate(mvMatrix, degToRad(rot[index][0]), [1, 0, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[index][1]), [0, 1, 0]);
+        mat4.rotate(mvMatrix, degToRad(rot[index][2]), [0, 0, 1]);
+
+        // shearing
+        mat4.identity(shearMatrix);
+        shearMatrix[4] += shear[index][0];
+        shearMatrix[1] += shear[index][1];
+
+        // shading 
+        gl.uniform1i(shaderProgram.useFlatShadingUniform, shading[index] == "flat");
+        gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading[index] == "gouraud");
+        gl.uniform1i(shaderProgram.usePhongShadingUniform, shading[index] == "phong");
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, kangarooVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexNormalBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, kangarooVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, kangarooVertexFrontColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, kangarooVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        // shiniess
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+
+        // enable front color
+        gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
+
+        // blending
+        var blending = document.getElementById("blending").checked;
+        if (blending) {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.enable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
+        } else {
+            gl.disable(gl.BLEND);
+            gl.enable(gl.DEPTH_TEST);
+        }
 
         setMatrixUniforms();
-        gl.drawArrays(gl.TRIANGLES, 0, teapotVertexPositionBuffer.numItems);
+        gl.drawArrays(gl.TRIANGLES, 0, kangarooVertexPositionBuffer.numItems);
     }
 
 
@@ -485,22 +552,6 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0, pMatrix); //perspective
-
-        // choose object
-        var choice = document.getElementById("choice").value;
-        if(choice == "teapot"){
-            cur = 0;
-        } else if(choice == "church"){
-            cur = 1;
-        } else if(choice == "csie"){
-            cur = 2;
-        }
-
-        // choose shading
-        var shading = document.getElementById("shading").value;
-        gl.uniform1i(shaderProgram.useFlatShadingUniform, shading == "flat");
-        gl.uniform1i(shaderProgram.useGouraudShadingUniform, shading == "gouraud");
-        gl.uniform1i(shaderProgram.usePhongShadingUniform, shading == "phong");
 
         // light assigning
         var specularHighlights = document.getElementById("specular").checked;
@@ -570,9 +621,9 @@
             }
         }
 
-        drawTeapot(0);
-        drawTeapot(1);
-        drawTeapot(2);
+        drawMig27(0);
+        drawEaster(1);
+        drawKangaroo(2);
     }
 
 
@@ -607,10 +658,11 @@
                     [0, 0.03, 0],
                     [0, 0.03, 0]];
     var init_rotmask = [1, 1, 1];
-    var init_pos = [[-40, 0, -100],
-               [0, 0, -100],
-               [40, 0, -100]];
+    var init_pos = [[-3, 0, -4],
+               [0, 0, -7],
+               [3, 0, -4]];
     var init_shear = [[0, 0], [0, 0], [0, 0]];
+    var init_shading = ['flat', 'flat', 'flat'];
     
     function deep_copy(attr){
         return JSON.parse(JSON.stringify(attr));
@@ -620,6 +672,7 @@
     var rotmask = deep_copy(init_rotmask);
     var pos = deep_copy(init_pos);
     var shear = deep_copy(init_shear);
+    var shading = deep_copy(init_shading);
     var cur = 0;
     
     function reset_mv(){
@@ -628,6 +681,7 @@
         rotmask[cur] = deep_copy(init_rotmask[cur]);
         pos[cur] = deep_copy(init_pos[cur]);
         shear[cur] = deep_copy(init_shear[cur]);
+        shading[cur] = deep_copy(init_shading[cur]);
     }
 
     function handleKeys(){
@@ -679,6 +733,15 @@
         if(pressedKeys[52]){//4
             shear[cur][1] += 0.05;
         }
+        if(pressedKeys[53]){//5
+            shading[cur] = "flat";
+        }
+        if(pressedKeys[54]){//6
+            shading[cur] = "gouraud";
+        }
+        if(pressedKeys[55]){//7
+            shading[cur] = "phong";
+        }
     }
 
     function handleKeyDown(event){
@@ -703,8 +766,9 @@
         var canvas = document.getElementById("ICG-canvas");
         initGL(canvas);
         initShaders();
-        initTextures();
-        loadTeapot();
+        loadMig27();
+        loadEaster();
+        loadKangaroo();
 
         gl.clearColor(0.0, 0.2, 0.2, 1.0); //change backcolor here
         gl.enable(gl.DEPTH_TEST);
@@ -715,6 +779,18 @@
         tick();
     }
 
+    function change_cur(){
+        // choose object
+        var choice = document.getElementById("choice").value;
+        if(choice == "mig27"){
+            cur = 0;
+        } else if(choice == "easter"){
+            cur = 1;
+        } else if(choice == "kangaroo"){
+            cur = 2;
+        }
+    }
+
 </script>
 
 </head>
@@ -722,24 +798,17 @@
 
 <body onload="webGLStart();">
   
-    <canvas id="ICG-canvas" style="border: none;" width="1200" height="600"></canvas>
+    <canvas id="ICG-canvas" style="border: none;" width="1250" height="400"></canvas>
     <br/>
     
-    <select id="choice">
-        <option selected value="teapot">Teapot</option>
-        <option value="church">Church</option>
-        <option value="csie">Csie</option>
+    <select id="choice" onchange="change_cur()">
+        <option selected value="mig27">Mig27</option>
+        <option value="easter">Easter</option>
+        <option value="kangaroo">Kangaroo</option>
     </select>
     <br/>
 
-    <select id="shading">
-        <option selected ="true" value="flat" >Flat Shading</option>
-        <option value="gouraud">Gouraud Shading</option>
-        <option value="phong"> Phong Shading</option>
-    </select>
-    <br/>
-
-    <input type="checkbox" id="blending" /> Use blending<br/>  
+    <input type="checkbox" id="blending" /> Transparency<br/>
     <table style="border: 0; padding: 10px;">
         <tr>
             <td>Alpha: <input type="text" id="alpha" value="0.5" />
@@ -749,7 +818,6 @@
 
     <input type="checkbox" id="specular" checked /> Show specular highlight<br/>
     <input type="checkbox" id="lighting" checked /> Use lighting<br/>
-    <input type="checkbox" id="textures" checked /> Use textures<br/>  
     <br/>
 
     <h2>Material:</h2>
@@ -826,6 +894,9 @@
     pgup, pgdn: speed up rotation on z axis<br/>
     R: reset<br/>
     1, 2, 3, 4: shearing<br/>
+    5: flat shading<br/>
+    6: gouraud shading<br/>
+    7: phong shading<br/>
 
 </body>
 
