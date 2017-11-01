@@ -422,22 +422,10 @@
         gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, mig27VertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         // shiniess
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininessRange").value));
 
         // enable front color
         gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
-
-        // blending
-        var blending = document.getElementById("blending").checked;
-        if (blending) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.enable(gl.BLEND);
-            gl.disable(gl.DEPTH_TEST);
-            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
-        } else {
-            gl.disable(gl.BLEND);
-            gl.enable(gl.DEPTH_TEST);
-        }
 
         setMatrixUniforms();
         gl.drawArrays(gl.TRIANGLES, 0, mig27VertexPositionBuffer.numItems);
@@ -482,22 +470,10 @@
         gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, easterVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         // shiniess
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininessRange").value));
 
         // enable front color
         gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
-
-        // blending
-        var blending = document.getElementById("blending").checked;
-        if (blending) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.enable(gl.BLEND);
-            gl.disable(gl.DEPTH_TEST);
-            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
-        } else {
-            gl.disable(gl.BLEND);
-            gl.enable(gl.DEPTH_TEST);
-        }
 
         setMatrixUniforms();
         gl.drawArrays(gl.TRIANGLES, 0, easterVertexPositionBuffer.numItems);
@@ -542,22 +518,10 @@
         gl.vertexAttribPointer(shaderProgram.vertexFrontColorAttribute, kangarooVertexFrontColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         // shiniess
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininessRange").value));
 
         // enable front color
         gl.uniform1i(shaderProgram.uUseFrontColorUniform, true);
-
-        // blending
-        var blending = document.getElementById("blending").checked;
-        if (blending) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.enable(gl.BLEND);
-            gl.disable(gl.DEPTH_TEST);
-            gl.uniform1f(shaderProgram.alphaUniform, parseFloat(document.getElementById("alpha").value));
-        } else {
-            gl.disable(gl.BLEND);
-            gl.enable(gl.DEPTH_TEST);
-        }
 
         setMatrixUniforms();
         gl.drawArrays(gl.TRIANGLES, 0, kangarooVertexPositionBuffer.numItems);
@@ -636,6 +600,18 @@
                     parseFloat(document.getElementById("diffuseB2").value)
                 );
             }
+        }
+
+        // transparency
+        var blending = document.getElementById("blending").checked;
+        if (blending) {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+            gl.enable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            gl.uniform1f(shaderProgram.alphaUniform, 0.5);
+        } else {
+            gl.disable(gl.BLEND);
+            gl.enable(gl.DEPTH_TEST);
         }
 
         drawMig27(0);
@@ -811,6 +787,8 @@
         document.onkeydown = handleKeyDown;
         document.onkeyup = handleKeyUp;
 
+        initSlider();
+
         tick();
     }
 
@@ -828,6 +806,58 @@
 
 </script>
 
+<style>
+#slidecontainer {
+    width: 100%;
+}
+
+.slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+}
+
+.slider:hover {
+    opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 23px;
+    height: 24px;
+    border: 0;
+    background: url('contrasticon.png');
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 23px;
+    height: 24px;
+    border: 0;
+    background: url('contrasticon.png');
+    cursor: pointer;
+}
+</style>
+
+<script type="text/javascript">
+function initSlider(){
+    var output = document.getElementById("shininess");
+    var slider = document.getElementById("shininessRange");
+
+    output.innerHTML = slider.value;//slider.value;
+    slider.oninput = function() { output.innerHTML = this.value; }
+
+}
+
+</script>
+
 </head>
 
 
@@ -835,7 +865,7 @@
   
     <canvas id="ICG-canvas" style="border: none;" width="1250" height="400"></canvas>
     <br/>
-    
+
     <select id="choice" onchange="change_cur()">
         <option selected value="mig27">Mig27</option>
         <option value="easter">Easter</option>
@@ -844,81 +874,68 @@
     <br/>
 
     <input type="checkbox" id="blending" /> Transparency<br/>
-    <table style="border: 0; padding: 10px;">
-        <tr>
-            <td>Alpha: <input type="text" id="alpha" value="0.5" />
-        </tr>
-    </table>
-
-
     <input type="checkbox" id="specular" checked /> Show specular highlight<br/>
     <input type="checkbox" id="lighting" checked /> Use lighting<br/>
-    <br/>
 
-    <h2>Material:</h2>
     <table style="border: 0; padding: 10px;">
         <tr>
-            <td><b>Shininess:</b>
-            <td><input type="text" id="shininess" value="32.0" />
+            <td>
+                <p>Shininess: <span id="shininess"></span></p>
+                <input type="range" min="1" max="100" value="50" class="slider" id="shininessRange">
+            </td>
         </tr>
-    </table>
 
-    <h2>Point light 1:</h2>
-    <input type="checkbox" id="pointLighting1" checked /> Use point light 1<br/>  
-    <table style="border: 0; padding: 10px;">
         <tr>
-            <td><b>Location:</b>
+            <input type="checkbox" id="pointLighting1" checked /> Use point light 1<br/>  
+        </tr>
+        <tr>
+            <td><b>Point Lihgt Location 1:</b>
             <td>X: <input type="text" id="lightPositionX1" value="-40.0" />
             <td>Y: <input type="text" id="lightPositionY1" value="30.0" />
             <td>Z: <input type="text" id="lightPositionZ1" value="-20.0" />
         </tr>
         <tr>
-            <td><b>Specular colour:</b>
+            <td><b>Point Lihgt Specular colour 1:</b>
             <td>R: <input type="text" id="specularR1" value="0.8" />
             <td>G: <input type="text" id="specularG1" value="0.8" />
             <td>B: <input type="text" id="specularB1" value="0.8" />
         </tr>
         <tr>
-            <td><b>Diffuse colour:</b>
+            <td><b>Point Lihgt Diffuse colour 1:</b>
             <td>R: <input type="text" id="diffuseR1" value="0.8" />
             <td>G: <input type="text" id="diffuseG1" value="0.8" />
             <td>B: <input type="text" id="diffuseB1" value="0.8" />
         </tr>
-    </table>
 
-    <h2>Point light 2:</h2>
-    <input type="checkbox" id="pointLighting2" checked /> Use point light 2<br/>
-    <table style="border: 0; padding: 10px;">
         <tr>
-            <td><b>Location:</b>
+            <input type="checkbox" id="pointLighting2" checked /> Use point light 2<br/>
+        </tr>
+        <tr>
+            <td><b>Point Lihgt Location 2:</b>
             <td>X: <input type="text" id="lightPositionX2" value="20.0" />
             <td>Y: <input type="text" id="lightPositionY2" value="-20.0" />
             <td>Z: <input type="text" id="lightPositionZ2" value="-10.0" />
         </tr>
         <tr>
-            <td><b>Specular colour:</b>
+            <td><b>Point Lihgt Specular colour 2:</b>
             <td>R: <input type="text" id="specularR2" value="0.8" />
             <td>G: <input type="text" id="specularG2" value="0.8" />
             <td>B: <input type="text" id="specularB2" value="0.8" />
         </tr>
         <tr>
-            <td><b>Diffuse colour:</b>
+            <td><b>Point Lihgt Diffuse colour 2:</b>
             <td>R: <input type="text" id="diffuseR2" value="0.8" />
             <td>G: <input type="text" id="diffuseG2" value="0.8" />
             <td>B: <input type="text" id="diffuseB2" value="0.8" />
         </tr>
-    </table>
-
-    <h2>Ambient light:</h2>
-    <table style="border: 0; padding: 0px;">
+    
         <tr>
-            <td><b>Colour:</b>
+            <td><b>Ambient light Color:</b>
             <td>R: <input type="text" id="ambientR" value="0.2" />
             <td>G: <input type="text" id="ambientG" value="0.2" />
             <td>B: <input type="text" id="ambientB" value="0.2" />
         </tr>
     </table>
-
     <br/>
 
     A, W, S, D: translation<br/>
