@@ -12,100 +12,167 @@
     #extension GL_OES_standard_derivatives : enable
     
     precision mediump float;
+
+    varying vec3 vAmbientColor;
     
-
-    uniform vec3 uAmbientColor;
-
     uniform bool uUsePointLighting1;
-    uniform vec3 uPointLightingLocation1;
-    uniform vec3 uPointLightingSpecularColor1;
-    uniform vec3 uPointLightingDiffuseColor1;
-
     uniform bool uUsePointLighting2;
-    uniform vec3 uPointLightingLocation2;
-    uniform vec3 uPointLightingSpecularColor2;
-    uniform vec3 uPointLightingDiffuseColor2;
     
-    uniform float uMaterialShininess;
+    varying vec3 vPointLightingLocation1;
+    varying vec3 vPointLightingSpecularColor1;
+    varying vec3 vPointLightingDiffuseColor1;
+
+    varying vec3 vPointLightingLocation2;
+    varying vec3 vPointLightingSpecularColor2;
+    varying vec3 vPointLightingDiffuseColor2;
+    
+    uniform bool uUseLighting;
+    uniform bool uShowSpecularHighlights;
+
+    varying float vMaterialShininess;
     
     uniform bool useFlatShading;
     uniform bool useGouraudShading;
     uniform bool usePhongShading;
-    uniform bool uUseLighting;
-    uniform bool uShowSpecularHighlights;
 
     varying vec4 fragcolor;
+    varying vec4 gouraud_color;
     varying vec3 normal;
-    varying vec3 normalized_normal;
     varying vec4 vtxp;
+
+    varying float specularLightWeight1;
+    varying float specularLightWeight2;
+    varying float diffuseLightWeight1;
+    varying float diffuseLightWeight2;
     
     void main(void) {
         vec3 lightWeighting;
-        if(uUseLighting){
-            vec3 N;
-            if(useFlatShading){
-                N = normalize(cross(dFdx(vtxp.xyz),dFdy(vtxp.xyz)));
-            } else if(useGouraudShading) {
-                N = normalized_normal;
-            } else if(usePhongShading){
-                N = normalize(normal);
+        if(uUseLighting){    
+            if(useFlatShading || usePhongShading){
+                vec3 N;
+                if(useFlatShading){
+                    N = normalize(cross(dFdx(vtxp.xyz),dFdy(vtxp.xyz)));
+                } else if(usePhongShading){
+                    N = normalize(normal);
+                }
+
+                vec3 eyeDirection = normalize( -(vtxp.xyz) );
+            
+                // point light 1
+                vec3 lightDirection1 = normalize(vPointLightingLocation1 - vtxp.xyz);
+                vec3 reflectionDirection1 = reflect(-lightDirection1, N);
+                float specularLightWeighting1 = pow(max(dot(reflectionDirection1, eyeDirection), 0.0), vMaterialShininess);
+                float diffuseLightWeighting1 = max(dot(N, lightDirection1), 0.0);
+
+                // point light 2
+                vec3 lightDirection2 = normalize(vPointLightingLocation2 - vtxp.xyz);
+                vec3 reflectionDirection2 = reflect(-lightDirection2, N);
+                float specularLightWeighting2 = pow(max(dot(reflectionDirection2, eyeDirection), 0.0), vMaterialShininess);
+                float diffuseLightWeighting2 = max(dot(N, lightDirection2), 0.0);
+
+                // light weighting
+                lightWeighting = vAmbientColor
+                    + (vPointLightingSpecularColor1 * specularLightWeighting1 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                    + vPointLightingDiffuseColor1 * diffuseLightWeighting1) * (uUsePointLighting1 ? 1.0 : 0.0)
+                    + (vPointLightingSpecularColor2 * specularLightWeighting2 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                    + vPointLightingDiffuseColor2 * diffuseLightWeighting2) * (uUsePointLighting2 ? 1.0 : 0.0);    
+                gl_FragColor = vec4(fragcolor.rgb * lightWeighting, fragcolor.a);
             }
-        
-            vec3 eyeDirection = normalize( -(vtxp.xyz) );
-        
-            // point light 1
-            vec3 lightDirection1 = normalize(uPointLightingLocation1 - vtxp.xyz);
-            vec3 reflectionDirection1 = reflect(-lightDirection1, N);
-            float specularLightWeighting1 = pow(max(dot(reflectionDirection1, eyeDirection), 0.0), uMaterialShininess);
-            float diffuseLightWeighting1 = max(dot(N, lightDirection1), 0.0);
-
-            // point light 2
-            vec3 lightDirection2 = normalize(uPointLightingLocation2 - vtxp.xyz);
-            vec3 reflectionDirection2 = reflect(-lightDirection2, N);
-            float specularLightWeighting2 = pow(max(dot(reflectionDirection2, eyeDirection), 0.0), uMaterialShininess);
-            float diffuseLightWeighting2 = max(dot(N, lightDirection2), 0.0);
-
-            // light weighting
-            lightWeighting = uAmbientColor
-                + (uPointLightingSpecularColor1 * specularLightWeighting1 * (uShowSpecularHighlights ? 1.0 : 0.0)
-                + uPointLightingDiffuseColor1 * diffuseLightWeighting1) * (uUsePointLighting1 ? 1.0 : 0.0)
-                + (uPointLightingSpecularColor2 * specularLightWeighting2 * (uShowSpecularHighlights ? 1.0 : 0.0)
-                + uPointLightingDiffuseColor2 * diffuseLightWeighting2) * (uUsePointLighting2 ? 1.0 : 0.0);       
+            if(useGouraudShading){
+                gl_FragColor = gouraud_color;
+            }
         } else {
-            lightWeighting = uAmbientColor;
+            lightWeighting = vec3(1.0, 1.0, 1.0);
+            gl_FragColor = vec4(fragcolor.rgb * lightWeighting, fragcolor.a);
         }
-        gl_FragColor = vec4(fragcolor.rgb * lightWeighting, fragcolor.a);
-    
     }
 </script>
 
 <script id="vertexShader" type="vertex">
-//flat
+
     attribute vec3 aVertexPosition;
     attribute vec3 aVertexNormal;
     attribute vec3 aFrontColor;
     
+    varying vec3 vAmbientColor;
+    uniform vec3 uAmbientColor;
+
+    uniform bool uUsePointLighting1;
+    uniform bool uUsePointLighting2;
     
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
     uniform mat4 uShearMatrix;
     uniform mat4 scaleMatrix;
     uniform mat3 uNMatrix;
+
+    uniform float uMaterialShininess;
+    uniform vec3 uPointLightingLocation1;
+    uniform vec3 uPointLightingLocation2;
+    uniform vec3 uPointLightingDiffuseColor1;
+    uniform vec3 uPointLightingDiffuseColor2;
+    uniform vec3 uPointLightingSpecularColor1;
+    uniform vec3 uPointLightingSpecularColor2;
     
+    uniform bool uShowSpecularHighlights;
     uniform bool uUseFrontColor;
     
     varying vec4 fragcolor;
     varying vec3 normal;
     varying vec3 normalized_normal;
     varying vec4 vtxp;
+
+    varying float specularLightWeight1;
+    varying float specularLightWeight2;
+    varying float diffuseLightWeight1;
+    varying float diffuseLightWeight2;
+    varying float vMaterialShininess;
+    varying vec3 vPointLightingLocation1;
+    varying vec3 vPointLightingLocation2;
+    varying vec3 vPointLightingSpecularColor1;
+    varying vec3 vPointLightingDiffuseColor1;
+    varying vec3 vPointLightingSpecularColor2;
+    varying vec3 vPointLightingDiffuseColor2;
+    varying vec4 gouraud_color;
+    
     
     void main(void) {
         vtxp = uMVMatrix * uShearMatrix * scaleMatrix * vec4(aVertexPosition, 1.0);
         gl_Position = uPMatrix * vtxp;
         normal = uNMatrix * aVertexNormal;
         normalized_normal = normalize(normal);
-
         fragcolor = vec4(aFrontColor.rgb, 1.0);
+
+        vMaterialShininess = uMaterialShininess;
+        vPointLightingLocation1 = uPointLightingLocation1;
+        vPointLightingDiffuseColor1 = uPointLightingDiffuseColor1;
+        vPointLightingSpecularColor1 = uPointLightingSpecularColor1;
+        vPointLightingLocation2 = uPointLightingLocation2;
+        vPointLightingDiffuseColor2 = uPointLightingDiffuseColor2;
+        vPointLightingSpecularColor2 = uPointLightingSpecularColor2;
+        vAmbientColor = uAmbientColor;
+        
+        vec3 eyeDirection = normalize( -(vtxp.xyz) );
+            
+        // point light 1
+        vec3 lightDirection1 = normalize(uPointLightingLocation1 - vtxp.xyz);
+        vec3 reflectionDirection1 = reflect(-lightDirection1, normal);
+        specularLightWeight1 = pow(max(dot(reflectionDirection1, eyeDirection), 0.0), uMaterialShininess);
+        diffuseLightWeight1 = max(dot(normal, lightDirection1), 0.0);
+
+        // point light 2
+        vec3 lightDirection2 = normalize(uPointLightingLocation2 - vtxp.xyz);
+        vec3 reflectionDirection2 = reflect(-lightDirection2, normalized_normal);
+        specularLightWeight2 = pow(max(dot(reflectionDirection2, eyeDirection), 0.0), uMaterialShininess);
+        diffuseLightWeight2 = max(dot(normalized_normal, lightDirection2), 0.0);
+
+        // color
+        vec3 lightWeighting = uAmbientColor
+                    + (vPointLightingSpecularColor1 * specularLightWeight1 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                    + vPointLightingDiffuseColor1 * diffuseLightWeight1) * (uUsePointLighting1 ? 1.0 : 0.0)
+                    + (vPointLightingSpecularColor2 * specularLightWeight2 * (uShowSpecularHighlights ? 1.0 : 0.0)
+                    + vPointLightingDiffuseColor2 * diffuseLightWeight2) * (uUsePointLighting2 ? 1.0 : 0.0);    
+        gouraud_color = vec4(aFrontColor * lightWeighting, 1.0);
     }
 </script>
 
